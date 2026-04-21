@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "233985015108",
+    "project_id": "trinetra-guard",
+    "storage_bucket": "trinetra-guard.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:233985015108:android:993ce8dfc78868bfd26b11",
+        "android_client_info": {
+          "package_name": "com.example.test_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgRgzA_jT6rcOZTgd8_JxmguHt6ajbstI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
