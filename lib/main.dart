@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,7 +12,9 @@ import 'alert_service.dart';
 import 'home_screen.dart';
 
 // Top-level singletons (Mistake 2 fix — never inside builders)
-final vitalsRepo = SimulatedVitalsRepo();
+// HARDWARE SWAP: Replace the line below with BLEVitalsRepo() when ESP32 is ready.
+// final VitalsRepository vitalsRepo = BLEVitalsRepo();
+final VitalsRepository vitalsRepo = SimulatedVitalsRepo();
 final alertService = AlertService(FirebaseDatabase.instance);
 
 void main() async {
@@ -100,9 +103,13 @@ class _AppShellState extends State<_AppShell> {
   }
 
   void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+    }
   }
+
+bool _isAlerting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -111,12 +118,18 @@ class _AppShellState extends State<_AppShell> {
         if (state is VitalsUpdated) {
           _lastKnownVitals = state.vitals;
         } else if (state is DeadManSwitchActive) {
+          HapticFeedback.heavyImpact();
           _showOverlay(context);
         } else if (state is VitalsMonitoring) {
           _removeOverlay();
         } else if (state is AlertPipeline) {
+          if (_isAlerting) return;
+          _isAlerting = true;
+          
           _removeOverlay();
           vitalsRepo.triggerNormal();
+          context.read<VitalsBloc>().add(ResetMonitoring());
+
           if (_lastKnownVitals != null) {
             final success = await alertService.triggerAlert(_lastKnownVitals!);
 
@@ -134,6 +147,8 @@ class _AppShellState extends State<_AppShell> {
               ),
             );
           }
+          
+          _isAlerting = false;
         }
       },
       // The visual layer is now entirely the premium HomeScreen

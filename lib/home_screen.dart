@@ -36,28 +36,39 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Tracks the "connected" status for the BLE dot — toggled by vitals arriving
   bool _bleConnected = false;
+  String _lastUpdated = "--:--:--";
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _T.bg,
-      body: SafeArea(
-        child: BlocBuilder<VitalsBloc, VitalsState>(
-          builder: (context, state) {
-            // Extract vitals from state (null-safe)
-            VitalsModel? vitals;
-            if (state is VitalsUpdated) {
-              vitals = state.vitals;
-              _bleConnected = true;
-            }
+    return BlocListener<VitalsBloc, VitalsState>(
+      listener: (context, state) {
+        if (state is VitalsUpdated) {
+          final now = DateTime.now();
+          setState(() {
+            _lastUpdated = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: _T.bg,
+        body: SafeArea(
+          child: BlocBuilder<VitalsBloc, VitalsState>(
+            builder: (context, state) {
+              // Extract vitals from state (null-safe)
+              VitalsModel? vitals;
+              if (state is VitalsUpdated) {
+                vitals = state.vitals;
+                _bleConnected = true;
+              }
 
-            return Column(
-              children: [
-                _buildTopBar(_bleConnected),
-                Expanded(child: _buildContent(context, vitals)),
-              ],
-            );
-          },
+              return Column(
+                children: [
+                  _buildTopBar(_bleConnected),
+                  Expanded(child: _buildContent(context, vitals)),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -97,7 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildVitalsRing(vitals?.spo2 ?? 0),
             const SizedBox(height: 32),
             _buildSecondaryCards(vitals),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            Text(
+              "Updated: $_lastUpdated",
+              style: const TextStyle(fontSize: 10, color: Colors.white54),
+            ),
+            const SizedBox(height: 12),
             _buildStatusChips(
               heatStress: vitals?.heatStress ?? false,
               sensorFit: vitals?.sensorFit ?? true,
@@ -303,7 +319,7 @@ class _SpO2ArcPainter extends CustomPainter {
 }
 
 // ─── Vital Card Widget ────────────────────────────────────────────────────────
-class _VitalCard extends StatelessWidget {
+class _VitalCard extends StatefulWidget {
   final Widget icon;
   final String value;
   final String label;
@@ -317,24 +333,47 @@ class _VitalCard extends StatelessWidget {
   });
 
   @override
+  State<_VitalCard> createState() => _VitalCardState();
+}
+
+class _VitalCardState extends State<_VitalCard> {
+  double _previousValue = 0;
+  bool _isGlowing = false;
+
+  @override
+  void didUpdateWidget(covariant _VitalCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.targetValue - oldWidget.targetValue).abs() >= 5) {
+      setState(() { _isGlowing = true; });
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) setState(() { _isGlowing = false; });
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
+        boxShadow: _isGlowing 
+            ? [BoxShadow(color: _T.accentGreen.withOpacity(0.3), blurRadius: 12, spreadRadius: 2)] 
+            : [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          icon,
+          widget.icon,
           const SizedBox(height: 10),
           TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0, end: targetValue),
+            tween: Tween<double>(begin: 0, end: widget.targetValue),
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOut,
             builder: (_, animVal, __) {
-              final display = targetValue == 0 ? '--' : value;
+              final display = widget.targetValue == 0 ? '--' : widget.value;
               return Text(
                 display,
                 style: GoogleFonts.inter(
@@ -348,7 +387,7 @@ class _VitalCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            label,
+            widget.label,
             style: GoogleFonts.inter(
               fontSize: 9,
               fontWeight: FontWeight.w400,

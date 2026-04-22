@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -88,7 +89,7 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
   StreamSubscription<VitalsModel>? _vitalsSubscription;
   StreamSubscription<int>? _countdownSubscription;
 
-  bool _isEmergencyActive = false;
+  bool _emergencyActive = false;
   bool _isEmergencySuppressed = false;
 
   VitalsBloc(this._repository) : super(VitalsInitial()) {
@@ -104,7 +105,7 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
   void _onStartMonitoring(StartMonitoring event, Emitter<VitalsState> emit) {
     // 2. Subscribes to repository stream (cancel any existing subscription)
     _vitalsSubscription?.cancel();
-    _isEmergencyActive = false;
+    _emergencyActive = false;
     _isEmergencySuppressed = false;
     emit(VitalsMonitoring());
 
@@ -117,7 +118,7 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
     // 9. On StopMonitoring event, cancels all subscriptions
     _vitalsSubscription?.cancel();
     _countdownSubscription?.cancel();
-    _isEmergencyActive = false;
+    _emergencyActive = false;
     _isEmergencySuppressed = false;
     emit(VitalsInitial());
   }
@@ -134,8 +135,8 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
 
     if (isEmergency) {
       // 5. Emits DeadManSwitchActive state if not currently active AND not suppressed
-      if (!_isEmergencyActive && !_isEmergencySuppressed) {
-        _isEmergencyActive = true;
+      if (!_emergencyActive && !_isEmergencySuppressed) {
+        _emergencyActive = true;
         final startTime = DateTime.now();
         emit(DeadManSwitchActive(startTime));
 
@@ -173,7 +174,7 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
   void _onCancelDeadManSwitch(CancelDeadManSwitch event, Emitter<VitalsState> emit) {
     // 7. On CancelDeadManSwitch event, cancels countdown and emits VitalsMonitoring
     _countdownSubscription?.cancel();
-    _isEmergencyActive = false;
+    _emergencyActive = false;
     
     // Set suppression flag to ignore subsequent abnormal vitals until they normalize
     _isEmergencySuppressed = true;
@@ -183,9 +184,16 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
 
   void _onResetMonitoring(ResetMonitoring event, Emitter<VitalsState> emit) {
     _countdownSubscription?.cancel();
-    _isEmergencyActive = false;
-    _isEmergencySuppressed = false;
+    _emergencyActive = false;
+    
+    // Scenario 6: Cooldown after reset (ignore triggers for 3 seconds)
+    _isEmergencySuppressed = true;
+    Timer(const Duration(seconds: 3), () {
+      _isEmergencySuppressed = false;
+    });
+    
     emit(VitalsMonitoring());
+    debugPrint('[DMS] System reset — ready'); // Scenario 5
   }
 
   void _onTriggerEmergency(TriggerEmergencyEvent event, Emitter<VitalsState> emit) {
