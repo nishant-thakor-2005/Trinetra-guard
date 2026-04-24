@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Tracks the "connected" status for the BLE dot — toggled by vitals arriving
   bool _bleConnected = false;
   String _lastUpdated = "--:--:--";
+  bool _demoMode = false; // Demo mode flag for presentation safety
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +91,42 @@ class _HomeScreenState extends State<HomeScreen> {
               letterSpacing: 4,
             ),
           ),
-          _BleDot(connected: connected),
+          Row(
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'DEMO',
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: _demoMode ? _T.accentAmber : _T.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  SizedBox(
+                    height: 12,
+                    width: 24,
+                    child: Transform.scale(
+                      scale: 0.6,
+                      child: Switch(
+                        value: _demoMode,
+                        onChanged: (v) => setState(() => _demoMode = v),
+                        activeColor: _T.accentAmber,
+                        activeTrackColor: _T.accentAmber.withOpacity(0.2),
+                        inactiveThumbColor: _T.textMuted,
+                        inactiveTrackColor: Colors.white10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              _BleDot(connected: connected),
+            ],
+          ),
         ],
       ),
     );
@@ -105,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           children: [
             const SizedBox(height: 8),
-            _buildVitalsRing(vitals?.spo2 ?? 0),
+            _buildVitalsRing(vitals?.spo2 ?? 0.0),
             const SizedBox(height: 32),
             _buildSecondaryCards(vitals),
             const SizedBox(height: 8),
@@ -209,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const _BatteryIcon(),
             value: vitals != null ? vitals.bat.toStringAsFixed(0) : '--',
             label: 'BAT %',
-            targetValue: vitals?.bat ?? 0,
+            targetValue: vitals?.bat ?? 0.0,
           ),
         ),
       ],
@@ -256,7 +292,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildEmergencyButton(BuildContext context) {
     return _EmergencyButton(
       onPressed: () {
-        context.read<VitalsBloc>().add(TriggerEmergencyEvent());
+        if (_demoMode) {
+          // Force trigger using simulated logic for the demo
+          SimulatedVitalsRepo().triggerEmergency();
+        } else {
+          context.read<VitalsBloc>().add(TriggerEmergencyEvent());
+        }
       },
     );
   }

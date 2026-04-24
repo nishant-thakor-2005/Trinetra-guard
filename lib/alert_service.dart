@@ -139,4 +139,42 @@ class AlertService {
     _retryTimer = null;
     _isAlertActive = false;
   }
+
+  /// Method 1 — Writes real-time vitals for the web dashboard.
+  Future<void> writeVitalsToDb(VitalsModel vitals) async {
+    try {
+      await _database.ref('/devices/trinetra001/vitals').set({
+        'ax': vitals.ax,
+        'ay': vitals.ay,
+        'az': vitals.az,
+        'pressure': vitals.pressure,
+        'temperature': vitals.temperature,
+        'alert': vitals.alert,
+        'hr': vitals.hr,
+        'spo2': vitals.spo2,
+        'bat': vitals.bat,
+        'mode': vitals.mode,
+        'timestamp': ServerValue.timestamp,
+      });
+    } catch (e) {
+      debugPrint('[AlertService] Vitals write failed: $e');
+    }
+  }
+
+  /// Method 2 — Logs historical alert events with reason and sensor state.
+  Future<void> writeAlertToDb(VitalsModel vitals, String reason) async {
+    try {
+      await _database.ref('/devices/trinetra001/alerts').push().set({
+        'reason': reason,
+        'ax': vitals.ax,
+        'ay': vitals.ay,
+        'az': vitals.az,
+        'pressure': vitals.pressure,
+        'temperature': vitals.temperature,
+        'timestamp': ServerValue.timestamp,
+      });
+    } catch (e) {
+      debugPrint('[AlertService] Alert log write failed: $e');
+    }
+  }
 }

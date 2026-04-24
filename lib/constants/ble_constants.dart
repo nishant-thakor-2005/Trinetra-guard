@@ -7,12 +7,10 @@
 const String kDeviceName = 'TRINETRA_GUARD';
 
 // The primary GATT Service UUID containing vitals characteristics.
-// TODO: Replace with actual firmware UUID
-const String kServiceUUID = 'REPLACE_WITH_FIRMWARE_UUID';
+const String kServiceUUID = '12345678-1234-1234-1234-123456789ABC';
 
 // The GATT Characteristic UUID that emits JSON vitals data.
-// TODO: Replace with actual firmware UUID
-const String kCharacteristicUUID = 'REPLACE_WITH_FIRMWARE_UUID';
+const String kCharacteristicUUID = 'ABCD1234-AB12-AB12-AB12-ABCD1234ABCD';
 
 // Time to wait before attempting a reconnection after an unexpected drop.
 const int kReconnectDelaySeconds = 2;

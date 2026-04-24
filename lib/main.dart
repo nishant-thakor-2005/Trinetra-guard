@@ -10,11 +10,12 @@ import 'vitals_bloc.dart';
 import 'dead_man_switch_overlay.dart';
 import 'alert_service.dart';
 import 'home_screen.dart';
+import 'ble_vitals_repo.dart';
 
 // Top-level singletons (Mistake 2 fix — never inside builders)
-// HARDWARE SWAP: Replace the line below with BLEVitalsRepo() when ESP32 is ready.
-// final VitalsRepository vitalsRepo = BLEVitalsRepo();
-final VitalsRepository vitalsRepo = SimulatedVitalsRepo();
+// HARDWARE SWAP COMPLETE: Now using real BLE hardware repo.
+// To revert to simulation: final VitalsRepository vitalsRepo = SimulatedVitalsRepo();
+final VitalsRepository vitalsRepo = BLEVitalsRepo();
 final alertService = AlertService(FirebaseDatabase.instance);
 
 void main() async {
@@ -117,6 +118,8 @@ bool _isAlerting = false;
       listener: (context, state) async {
         if (state is VitalsUpdated) {
           _lastKnownVitals = state.vitals;
+          // Fire-and-forget write to Firebase for the live dashboard
+          alertService.writeVitalsToDb(state.vitals);
         } else if (state is DeadManSwitchActive) {
           HapticFeedback.heavyImpact();
           _showOverlay(context);
@@ -131,6 +134,9 @@ bool _isAlerting = false;
           context.read<VitalsBloc>().add(ResetMonitoring());
 
           if (_lastKnownVitals != null) {
+            // Log the specific alert event to the history node
+            alertService.writeAlertToDb(_lastKnownVitals!, 'FALL_DETECTED');
+
             final success = await alertService.triggerAlert(_lastKnownVitals!);
 
             if (!mounted) return;

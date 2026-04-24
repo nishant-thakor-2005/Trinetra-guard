@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRINETRA GUARD | Emergency Dashboard</title>
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --bg: #0A0A0A;
+            --surface: #1C1C1E;
+            --accent: #00E5CC;
+            --red: #FF3B30;
+            --green: #34C759;
+            --text-primary: #FFFFFF;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: system-ui, -apple-system, sans-serif;
+            padding-top: 40px; /* Space for connection bar */
+            line-height: 1.5;
+        }
+
+        /* --- Connection Bar --- */
+        #connection-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--red);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+        #connection-bar.live { background: var(--green); }
+        #status-text {
+            position: absolute;
+            top: 6px;
+            right: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--red);
+        }
+        #connection-bar.live + #status-text { color: var(--green); }
+
+        /* --- Layout --- */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        header {
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 20px;
+            letter-spacing: 4px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        /* --- Grid & Cards --- */
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s ease;
+        }
+
+        .card-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .card-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .card-unit {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+
+        /* --- Alert Pulse --- */
+        .alert-card { border: 2px solid var(--green); transition: all 0.3s ease; }
+        .alert-card.danger {
+            border-color: var(--red);
+            background: rgba(255, 59, 48, 0.05);
+            animation: pulse 1.5s infinite;
+        }
+        .alert-card.danger .card-value { color: var(--red); }
+        .alert-card .card-value { color: var(--green); }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 59, 48, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
+
+        /* --- Alert Log --- */
+        .log-container {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .log-header {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 12px;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+        }
+
+        .log-item:last-child { border-bottom: none; }
+
+        .log-time { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+        .log-reason { color: var(--red); font-weight: 600; }
+
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 16px; }
+            .card-value { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="connection-bar"></div>
+    <div id="status-text">DISCONNECTED</div>
+
+    <div class="container">
+        <header>
+            <h1>TRINETRA GUARD</h1>
+            <div id="last-updated" style="font-size: 11px; color: var(--text-secondary);">Last sync: --:--:--</div>
+        </header>
+
+        <div class="vitals-grid">
+            <!-- Alert Status -->
+            <div id="alert-card" class="card alert-card">
+                <span class="card-label">SYSTEM STATUS</span>
+                <div id="status-val" class="card-value">NORMAL</div>
+            </div>
+
+            <!-- Temperature -->
+            <div class="card">
+                <span class="card-label">TEMPERATURE</span>
+                <span id="temp-val" class="card-value">--.-</span>
+                <span class="card-unit">°C</span>
+            </div>
+
+            <!-- Pressure -->
+            <div class="card">
+                <span class="card-label">PRESSURE</span>
+                <span id="pres-val" class="card-value">----</span>
+                <span class="card-unit">hPa</span>
+            </div>
+
+            <!-- Battery -->
+            <div class="card">
+                <span class="card-label">BATTERY</span>
+                <span id="bat-val" class="card-value">--</span>
+                <span class="card-unit">%</span>
+            </div>
+
+            <!-- Acceleration -->
+            <div class="card" style="grid-column: span 1;">
+                <span class="card-label">ACCELERATION (G)</span>
+                <div style="display: flex; gap: 12px; font-size: 20px; font-weight: 600; color: var(--accent);">
+                    <span>X: <span id="ax-val">0.00</span></span>
+                    <span>Y: <span id="ay-val">0.00</span></span>
+                    <span>Z: <span id="az-val">0.00</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Log -->
+        <div class="log-container">
+            <div class="log-header">EMERGENCY LOG (LAST 10)</div>
+            <div id="alert-log">
+                <!-- Items added dynamically -->
+            </div>
+        </div>
+
+        <div class="footer">
+            TRINETRA GUARD • SECURE MONITORING SYSTEM • V1.0
+        </div>
+    </div>
+
+    <script>
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDzFAHAbKgrfqHyR0v0KqA6__m1RSGaIw",
+            authDomain: "trinetra-guard.firebaseapp.com",
+            databaseURL: "https://trinetra-guard-default-rtdb.firebaseio.com", // Verify this in Firebase Console
+            projectId: "trinetra-guard"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- Connection Status ---
+        const connectedRef = db.ref(".info/connected");
+        const connBar = document.getElementById('connection-bar');
+        const statusText = document.getElementById('status-text');
+
+        connectedRef.on("value", (snap) => {
+            if (snap.val() === true) {
+                connBar.classList.add('live');
+                statusText.innerText = "LIVE";
+            } else {
+                connBar.classList.remove('live');
+                statusText.innerText = "DISCONNECTED";
+            }
+        });
+
+        // --- Real-time Vitals Listener ---
+        const vitalsRef = db.ref('/devices/trinetra001/vitals');
+        vitalsRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // Update UI elements
+            document.getElementById('temp-val').innerText = (data.temperature || 0).toFixed(1);
+            document.getElementById('pres-val').innerText = (data.pressure || 0).toFixed(1);
+            document.getElementById('ax-val').innerText = (data.ax || 0).toFixed(2);
+            document.getElementById('ay-val').innerText = (data.ay || 0).toFixed(2);
+            document.getElementById('az-val').innerText = (data.az || 0).toFixed(2);
+            document.getElementById('bat-val').innerText = data.bat || 0;
+
+            // Alert status
+            const alertCard = document.getElementById('alert-card');
+            const statusVal = document.getElementById('status-val');
+            if (data.alert === true) {
+                alertCard.classList.add('danger');
+                statusVal.innerText = "EMERGENCY";
+            } else {
+                alertCard.classList.remove('danger');
+                statusVal.innerText = "NORMAL";
+            }
+
+            // Timestamp
+            const now = new Date();
+            document.getElementById('last-updated').innerText = `Last sync: ${now.toLocaleTimeString()}`;
+        });
+
+        // --- Alert History Listener ---
+        const alertsRef = db.ref('/devices/trinetra001/alerts');
+        alertsRef.limitToLast(10).on('value', (snapshot) => {
+            const logElement = document.getElementById('alert-log');
+            logElement.innerHTML = ''; // Clear for refresh
+
+            const alerts = [];
+            snapshot.forEach((child) => {
+                alerts.push(child.val());
+            });
+
+            // Newest at top
+            alerts.reverse().forEach((alert) => {
+                const item = document.createElement('div');
+                item.className = 'log-item';
+                
+                const timeStr = alert.timestamp ? new Date(alert.timestamp).toLocaleTimeString() : 'Unknown';
+                const dateStr = alert.timestamp ? new Date(alert.timestamp).toLocaleDateString() : '';
+
+                item.innerHTML = `
+                    <span class="log-time">${dateStr} ${timeStr}</span>
+                    <span class="log-reason">${alert.reason || 'Unknown Event'}</span>
+                `;
+                logElement.appendChild(item);
+            });
+        });
+    </script>
+</body>
+</html>

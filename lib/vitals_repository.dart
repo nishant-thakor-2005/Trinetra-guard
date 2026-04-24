@@ -2,52 +2,11 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 
+import 'vitals_model.dart';
+
+export 'vitals_model.dart';
+
 enum SimulationMode { normal, activity, emergency, recovery }
-
-class VitalsModel {
-  final int hr;
-  final double spo2;
-  final double temp;
-  final bool fall;
-  final bool sos;
-  final double bat;
-  final bool heatStress;
-  final bool sensorFit;
-  final String mode;
-  final double? tegUw;
-  final bool? ecgAf;
-
-  const VitalsModel({
-    required this.hr,
-    required this.spo2,
-    required this.temp,
-    required this.fall,
-    required this.sos,
-    required this.bat,
-    this.heatStress = false,
-    this.sensorFit = true,
-    this.mode = 'wrist',
-    this.tegUw,
-    this.ecgAf,
-  });
-
-  // Addition 2: JSON validation safety. If any key is missing or invalid, fallback to safe defaults.
-  factory VitalsModel.fromJson(Map<String, dynamic> json) {
-    return VitalsModel(
-      hr: (json['hr'] as num?)?.toInt() ?? 72,
-      spo2: (json['spo2'] as num?)?.toDouble() ?? 98.0,
-      temp: (json['temp'] as num?)?.toDouble() ?? 36.6,
-      fall: json['fall'] as bool? ?? false,
-      sos: json['sos'] as bool? ?? false,
-      bat: (json['bat'] as num?)?.toDouble() ?? 100.0,
-      heatStress: json['heat_stress'] as bool? ?? false,
-      sensorFit: json['sensor_fit'] as bool? ?? true,
-      mode: json['mode'] as String? ?? 'wrist',
-      tegUw: (json['teg_uw'] as num?)?.toDouble(),
-      ecgAf: json['ecg_af'] as bool?,
-    );
-  }
-}
 
 abstract class VitalsRepository {
   Stream<VitalsModel> get vitalsStream;
